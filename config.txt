@@ -1,0 +1,4 @@
+upstream_dns=8.8.8.8
+blacklist=example.com,blocked.com
+response_type=not_found
+pre_configured_ip=0.0.0.0
