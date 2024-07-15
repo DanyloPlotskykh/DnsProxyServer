@@ -51,12 +51,7 @@ void load_config(Config *config) {
             config->port = atoi(line + 5);
         }
     }
-
-    // printf("after while\n");
-    // printf("blacklist_size: %d\n", config->blacklist_size);
-    // for (int i = 0; i < config->blacklist_size; i++) {
-    //     printf("blacklist[%d]: %s\n", i, config->blacklist[i]);
-    // }
+    
     fclose(file);
 }
 
