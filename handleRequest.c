@@ -1,6 +1,7 @@
 #include "handleRequest.h"
 
 #define BUFFER_SIZE 512
+#define UPSTREAM_DNS_PORT 53
 
 static void extract_domain(unsigned char *buffer, char *domain) {
     unsigned char *qname = buffer + 12;
@@ -80,11 +81,16 @@ void handle_request(int sockfd, struct sockaddr_in *client_addr, socklen_t clien
         if (strcmp(config->response_type, "not_found") == 0) {
             // (Generate DNS response with RCODE=3)
             printf("Domain name does not exist\n");
+            buffer[3] = (buffer[3] & 0xF0) | 0x03;
         } else if (strcmp(config->response_type, "refused") == 0) {
             // (Generate DNS response with RCODE=5)
             printf("The server refused to answer for the query\n");
+            buffer[3] = (buffer[3] & 0xF0) | 0x05;
         } else if (strcmp(config->response_type, "resolve") == 0) {
             // (Generate DNS response with pre_configured_ip)
+        }
+        else {
+            printf("Invalid response type: %s\n", config->response_type);
         }
 
         // Send the response to the client
@@ -93,12 +99,22 @@ void handle_request(int sockfd, struct sockaddr_in *client_addr, socklen_t clien
         printf("Forwarding query for %s to upstream DNS server %s\n", domain, config->upstream_dns);
 
         // Forward the request to the upstream DNS server
+        int upstream_sockfd;
+        if ((upstream_sockfd = socket(PF_INET, SOCK_DGRAM, IPPROTO_UDP)) < 0) {
+            perror("socket failed");
+            return;
+        }
+
         struct sockaddr_in upstream_addr;
         upstream_addr.sin_family = AF_INET;
-        upstream_addr.sin_port = htons(53); // Вышестоящий DNS-сервер всегда на порту 53    
-        inet_pton(AF_INET, config->upstream_dns, &upstream_addr.sin_addr);
+        upstream_addr.sin_port = htons(UPSTREAM_DNS_PORT);   
+        upstream_addr.sin_addr.s_addr = inet_addr(config->upstream_dns);
 
-        ssize_t sent_bytes = sendto(sockfd, buffer, n, 0, (const struct sockaddr *)&upstream_addr, sizeof(upstream_addr));
+        printf("Upstream DNS server address: %s\n", inet_ntoa(upstream_addr.sin_addr));
+        
+        // inet_pton(AF_INET, config->upstream_dns, &upstream_addr.sin_addr);
+
+        ssize_t sent_bytes = sendto(upstream_sockfd, buffer, n, 0, (const struct sockaddr *)&upstream_addr, sizeof(upstream_addr));
         if (sent_bytes < 0) {
             perror("sendto to upstream DNS failed");
             return;
@@ -106,7 +122,7 @@ void handle_request(int sockfd, struct sockaddr_in *client_addr, socklen_t clien
         printf("Query forwarded to upstream DNS server\n");
 
         // Receive the response from the upstream DNS server
-        n = recvfrom(sockfd, buffer, BUFFER_SIZE, 0, NULL, NULL);
+        n = recvfrom(upstream_sockfd, buffer, BUFFER_SIZE, 0, NULL, NULL);
         if (n < 0) {
             perror("recvfrom from upstream DNS failed");
             return;
