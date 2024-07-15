@@ -1,26 +1,24 @@
 # DnsProxyServer
 
-```
-1. 基于 mkdir build 开发
-```
+1.Create folder
 
 ```
-2. cd build
+mkdir build && cd build
 ```
 
-3.
+2. Configure
 
 ```
 cmake ..
 ```
 
-4.
+3. Build
 
 ```
 cmake --build .
 ```
 
-5.
+4. Start proxy
 
 ```
 ./dnsServer

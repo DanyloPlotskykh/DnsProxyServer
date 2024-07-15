@@ -21,6 +21,7 @@ static void extract_domain(unsigned char *buffer, char *domain) {
 void start_server()
 {
     Config config;
+    printf("Loading configuration...\n");
     load_config(&config);
 
     int sockfd;
@@ -74,7 +75,7 @@ void handle_request(int sockfd, struct sockaddr_in *client_addr, socklen_t clien
     printf("Query for domain: %s\n", domain);
 
     // Check if the domain is blacklisted
-    if (is_blacklisted(domain, config->blacklist)) {
+    if (is_blacklisted(domain, config->blacklist, config->blacklist_size)) {
         printf("Blocked domain: %s\n", domain);
 
         // Generate response based on response_type
@@ -87,7 +88,7 @@ void handle_request(int sockfd, struct sockaddr_in *client_addr, socklen_t clien
             printf("The server refused to answer for the query\n");
             buffer[3] = (buffer[3] & 0xF0) | 0x05;
         } else if (strcmp(config->response_type, "resolve") == 0) {
-            // (Generate DNS response with pre_configured_ip)
+            buffer[3] = (buffer[3] & 0xF0) | 0x00;
         }
         else {
             printf("Invalid response type: %s\n", config->response_type);
@@ -111,8 +112,6 @@ void handle_request(int sockfd, struct sockaddr_in *client_addr, socklen_t clien
         upstream_addr.sin_addr.s_addr = inet_addr(config->upstream_dns);
 
         printf("Upstream DNS server address: %s\n", inet_ntoa(upstream_addr.sin_addr));
-        
-        // inet_pton(AF_INET, config->upstream_dns, &upstream_addr.sin_addr);
 
         ssize_t sent_bytes = sendto(upstream_sockfd, buffer, n, 0, (const struct sockaddr *)&upstream_addr, sizeof(upstream_addr));
         if (sent_bytes < 0) {
